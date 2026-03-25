@@ -28,7 +28,7 @@ async function fetchParameters(executionContext) {
         }
 
         const cfg = await getSynexusConfig();
-        if (!cfg.url || !cfg.secretCode || !cfg.clientCode) {
+        if (!cfg.url || !cfg.FunctionId || !cfg.clientFunction) {
             Xrm.Utility.closeProgressIndicator();
             alert("Synexus Tax configuration is missing. Please check Environment Variables.");
             return;
@@ -56,7 +56,7 @@ async function fetchParameters(executionContext) {
 }
 
 async function calculateTaxAndUpdateLines(formContext, cfg, invoiceId, invoiceLines) {
-    const endpoint = `${cfg.url}MGGetTaxForCart?code=${encodeURIComponent(cfg.secretCode)}`;
+    const endpoint = `${cfg.url}MGGetTaxForCart?Function=${enFunctionURIComponent(cfg.FunctionId)}`;
 
     const customerLookup = formContext.getAttribute("customerid") && formContext.getAttribute("customerid").getValue ? formContext.getAttribute("customerid").getValue() : null;
     const customerId = (customerLookup && customerLookup[0] && customerLookup[0].id) ? customerLookup[0].id.replace(/[{}]/g, "") : "";
@@ -73,7 +73,7 @@ async function calculateTaxAndUpdateLines(formContext, cfg, invoiceId, invoiceLi
     const body = {
         facilityNumber: "0",
         testTransaction: false,
-        clientID: cfg.clientCode,
+        clientID: cfg.clientFunction,
         customerID: customerId || "0",
         cartID: invoiceId,
         deliveredBySeller: true,
@@ -87,7 +87,7 @@ async function calculateTaxAndUpdateLines(formContext, cfg, invoiceId, invoiceLi
         ToAddress1: getText(formContext, "shipto_line1"),
         ToAddress2: getText(formContext, "shipto_line2"),
         ToCity: getText(formContext, "shipto_city"),
-        ToZip: getText(formContext, "shipto_postalcode"),
+        ToZip: getText(formContext, "shipto_postalFunction"),
         ToState: getText(formContext, "shipto_stateorprovince"),
         ToCountry: getText(formContext, "shipto_country"),
         cart: cart
@@ -120,12 +120,12 @@ async function navigateToInvoiceList() {
 }
 
 async function getSynexusConfig() {
-    const keys = ["syn_synexustaxurl", "syn_secretcode", "syn_clientcode"];
+    const keys = ["craa5_syn_synexustaxurl", "craa5_syn_FunctionId", "craa5_syn_clientFunction"];
     const defFilter = keys.map(k => `schemaname eq '${k}'`).join(" or ");
 
     const defsResp = await Xrm.WebApi.retrieveMultipleRecords(
         "environmentvariabledefinition",
-        `?$select=environmentvariabledefinitionid,schemaname,defaultvalue&$filter=${encodeURIComponent(defFilter)}`
+        `?$select=environmentvariabledefinitionid,schemaname,defaultvalue&$filter=${enFunctionURIComponent(defFilter)}`
     );
 
     const defs = defsResp.entities || [];
@@ -139,7 +139,7 @@ async function getSynexusConfig() {
         const valueFilter = defIds.map(id => `_environmentvariabledefinitionid_value eq ${wrapGuidForOData(id)}`).join(" or ");
         const valuesResp = await Xrm.WebApi.retrieveMultipleRecords(
             "environmentvariablevalue",
-            `?$select=value,_environmentvariabledefinitionid_value&$filter=${encodeURIComponent(valueFilter)}`
+            `?$select=value,_environmentvariabledefinitionid_value&$filter=${enFunctionURIComponent(valueFilter)}`
         );
 
         const values = valuesResp.entities || [];
@@ -148,11 +148,11 @@ async function getSynexusConfig() {
         }
     }
 
-    const url = normalizeBaseUrl(pickEnvValue(defBySchema["syn_synexustaxurl"], valueByDefId));
-    const secretCode = safeTrim(pickEnvValue(defBySchema["syn_secretcode"], valueByDefId));
-    const clientCode = safeTrim(pickEnvValue(defBySchema["syn_clientcode"], valueByDefId));
+    const url = normalizeBaseUrl(pickEnvValue(defBySchema["craa5_syn_synexustaxurl"], valueByDefId));
+    const FunctionId = safeTrim(pickEnvValue(defBySchema["craa5_syn_FunctionId"], valueByDefId));
+    const clientFunction = safeTrim(pickEnvValue(defBySchema["craa5_syn_clientFunction"], valueByDefId));
 
-    return { url, secretCode, clientCode };
+    return { url, FunctionId, clientFunction };
 }
 
 function pickEnvValue(def, valueByDefId) {
@@ -182,7 +182,7 @@ async function getInvoiceLines(invoiceId) {
     ].join(",");
 
     const filter = `_invoiceid_value eq ${wrapGuidForOData(invoiceId)}`;
-    const query = `?$select=${select}&$filter=${encodeURIComponent(filter)}&$top=5000`;
+    const query = `?$select=${select}&$filter=${enFunctionURIComponent(filter)}&$top=5000`;
 
     const resp = await Xrm.WebApi.retrieveMultipleRecords("invoicedetail", query);
     return resp.entities || [];
